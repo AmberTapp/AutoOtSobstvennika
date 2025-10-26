@@ -1,0 +1,40 @@
+
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    ports: ["5432:5432"]
+    volumes: [ "pg_data:/var/lib/postgresql/data" ]
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+  api:
+    build: .
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    volumes: [ ".:/code" ]
+    ports: ["8000:8000"]
+    depends_on: [postgres, redis]
+
+  bot:
+    build: .
+    command: python -m app.bot.main
+    env_file: .env
+    volumes: [ ".:/code" ]
+    depends_on: [api]
+
+  worker:
+    build: .
+    command: celery -A app.worker.celery_app.celery worker -l INFO
+    env_file: .env
+    volumes: [ ".:/code" ]
+    depends_on: [redis, api]
+
+volumes:
+  pg_data:
